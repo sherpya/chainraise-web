@@ -20,13 +20,18 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
     const { chainId, library } = useEthers();
     const chainRaise = getChainRaiseContract(library!);
 
-    const campaign = useCall({
+    const result = useCall({
         contract: chainRaise,
         method: 'campaigns',
         args: [campaignId]
-    })?.value;
+    });
 
+    const campaign = result?.value;
     const ens = useLookupAddress(campaign?.creator)?.ens;
+
+    if (result?.error) {
+        return (<div>Error {result?.error.message}...</div>);
+    }
 
     if (!campaign) {
         return (<div>Loading...</div>);
