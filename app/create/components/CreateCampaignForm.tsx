@@ -15,13 +15,14 @@ import { Campaign, campaignSchema } from '@/app/models/Campaign';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 
 import type { CampaignForm } from '@/app/models/Campaign';
+import { useEffect } from 'react';
 
 export default function CreateCampaignForm() {
     const { library } = useEthers();
 
     const router = useRouter();
     const resolver = yupResolver(campaignSchema);
-    const { register, handleSubmit, formState: { errors } } = useForm<CampaignForm>({
+    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CampaignForm>({
         resolver,
         defaultValues: {
             amount: 1,
@@ -31,40 +32,25 @@ export default function CreateCampaignForm() {
 
     const chainRaise = getChainRaiseContract(library!);
 
-    const { state, send } = useContractFunction(chainRaise, 'createCampaign', {
+    const { state, send, events } = useContractFunction(chainRaise, 'createCampaign', {
         transactionName: 'createCampaign'
-    })
+    });
 
     const { status, errorMessage } = state;
 
     const chainId = library?.network?.chainId ?? 0;
 
-    const onSubmit = handleSubmit(async (values) => {
+    const onSubmit = handleSubmit((values) => {
         const campaign = new Campaign(values, chainId);
-        const result = await send(
-            campaign.token.address,
-            campaign.amount,
-            campaign.expiration,
-            '');
-
-        if (!result) {
-            console.log('error');
-            return;
-        }
-
-        const events = await chainRaise.queryFilter(
-            chainRaise.filters.CampaignCreated(),
-            result?.blockNumber,
-            result?.blockNumber) || [];
-
-        if (!events.length) {
-            console.log('No creation events');
-            return;
-        }
-
-        const { campaignId } = events.at(-1)!.args;
-        router.push(`/fund/${campaignId}`);
+        return send(campaign.token.address, campaign.amount, campaign.expiration, '');
     });
+
+    useEffect(() => {
+        if (events) {
+            const { campaignId } = events.at(-1)!.args;
+            router.push(`/fund/${campaignId}`);
+        }
+    }, [router, events]);
 
     return (
         <div className="container">
@@ -109,10 +95,10 @@ export default function CreateCampaignForm() {
 
                 <div className="field">
                     <div className="control">
-                        <button className="button is-link">Submit</button>
+                        <button disabled={isSubmitting} className="button is-link">Submit</button>
                     </div>
                 </div>
             </form>
         </div>
-    )
+    );
 }

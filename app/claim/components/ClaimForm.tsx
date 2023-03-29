@@ -31,7 +31,7 @@ export default function ClaimForm() {
     }, [library]);
 
     const resolver = yupResolver(claimSchema);
-    const { register, handleSubmit, formState: { errors } } = useForm<ClaimForm>({
+    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ClaimForm>({
         resolver,
         defaultValues: {
             amount: 100.0
@@ -43,11 +43,9 @@ export default function ClaimForm() {
     const [token, setToken] = useState<Token>(TOKENS[chainId][0]);
     const [contract, setContract] = useState<ClaimableToken>(getTokenContract(token.address));
 
-    const { state, send } = useContractFunction(contract, 'claim', {
+    const { state: { status, errorMessage }, send } = useContractFunction(contract, 'claim', {
         transactionName: 'claim'
     });
-
-    const { status, errorMessage } = state;
 
     const balance = useTokenBalance(token.address, account);
 
@@ -59,9 +57,9 @@ export default function ClaimForm() {
         setContract(getTokenContract(token.address));
     }, [token, getTokenContract]);
 
-    const onSubmit = handleSubmit(async (values) => {
+    const onSubmit = handleSubmit((values) => {
         const _token = findToken(values.token, chainId);
-        await send(parseUnits(values.amount.toString(), _token.decimals));
+        return send(parseUnits(values.amount.toString(), _token.decimals));
     });
 
     return (
@@ -88,7 +86,7 @@ export default function ClaimForm() {
 
                 <div className="field">
                     <div className="control">
-                        <button className="button is-link">Claim</button>
+                        <button disabled={isSubmitting} className="button is-link">Claim</button>
                     </div>
                 </div>
             </form>
