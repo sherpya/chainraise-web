@@ -1,24 +1,39 @@
 'use client';
+import { WagmiConfig, createConfig, configureChains } from 'wagmi';
 
-import { DAppProvider, Config, Hardhat } from '@usedapp/core';
+import { bscTestnet, sepolia } from '@wagmi/core/chains';
+import { alchemyProvider } from 'wagmi/providers/alchemy';
+import { publicProvider } from 'wagmi/providers/public';
+import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 
-const config: Config = {
-    readOnlyChainId: Hardhat.chainId,
-    readOnlyUrls: {
-        [Hardhat.chainId]: 'http://localhost:8545'
-    },
-    networks: [Hardhat]
-    //multicallVersion: 2 as const
-};
+import { buildbear } from './common';
+import { useEffect, useState } from 'react';
 
-export function Providers({
+const { chains, publicClient, webSocketPublicClient } = configureChains(
+    [sepolia, bscTestnet, buildbear],
+    [alchemyProvider({ apiKey: process.env.NEXT_PUBLIC_ALCHEMY_APIKEY }), publicProvider()],
+);
+
+const config = createConfig({
+    autoConnect: true,
+    connectors: [
+        new MetaMaskConnector({ chains })
+    ],
+    publicClient,
+    webSocketPublicClient,
+});
+
+export default function Providers({
     children,
 }: {
-    children: React.ReactNode
+    children: React.ReactNode;
 }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
     return (
-        <DAppProvider config={config} >
-            {children}
-        </DAppProvider>
+        <WagmiConfig config={config} >
+            {mounted && children}
+        </WagmiConfig>
     );
 }

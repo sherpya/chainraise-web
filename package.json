@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typechain:generate": "typechain --target=ethers-v5 ../chainraise/artifacts/contracts/ChainRaise.sol/ChainRaise.json ../chainraise/artifacts/contracts/ClaimableToken.sol/ClaimableToken.json --out-dir=./gen/types"
+    "generate": "wagmi generate",
+    "protoc": "mkdir -p gen && protoc --plugin=node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=esModuleInterop=true --ts_proto_out=gen app/models/markdown.proto"
   },
   "keywords": [
     "crowdfunding",
@@ -18,28 +19,38 @@
   "author": "Gianluigi Tiesi <sherpya@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@ethersproject/contracts": "^5.7.0",
     "@hookform/error-message": "^2.0.1",
-    "@hookform/resolvers": "^3.0.0",
-    "@types/node": "18.15.111",
-    "@types/react": "18.0.31",
-    "@types/react-dom": "18.0.11",
-    "@usedapp/core": "^1.2.7",
+    "@hookform/resolvers": "^3.1.1",
+    "abitype": "^0.8.10",
     "bulma": "^0.9.4",
-    "dayjs": "^1.11.7",
-    "eslint": "8.37.0",
-    "eslint-config-next": "13.2.4",
-    "ethers": "^5.7.2",
-    "next": "13.2.4",
+    "dayjs": "^1.11.8",
+    "hast-util-sanitize": "^4.1.0",
+    "jssha": "^3.3.0",
+    "next": "13.4.6",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-hook-form": "^7.43.8",
-    "typescript": "5.0.2",
-    "yup": "^1.0.2"
+    "react-hook-form": "^7.45.0",
+    "react-query": "^3.39.3",
+    "react-quill": "^2.0.0",
+    "remark": "^14.0.3",
+    "remark-html": "^15.0.2",
+    "turndown": "^7.1.2",
+    "unified": "^10.1.2",
+    "unist-util-visit": "^4.1.2",
+    "viem": "^1.0.7",
+    "wagmi": "^1.2.0",
+    "yup": "^1.2.0"
   },
   "devDependencies": {
-    "@typechain/ethers-v5": "^10.2.0",
-    "sass": "^1.60.0",
-    "typechain": "^8.1.1"
+    "@types/node": "20.3.1",
+    "@types/react": "^18.2.13",
+    "@types/react-dom": "^18.2.6",
+    "@types/turndown": "^5.0.1",
+    "@wagmi/cli": "^1.2.0",
+    "eslint": "^8.43.0",
+    "eslint-config-next": "^13.4.6",
+    "sass": "^1.63.4",
+    "ts-proto": "^1.149.0",
+    "typescript": "^5.1.3"
   }
 }

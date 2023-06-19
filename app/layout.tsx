@@ -1,7 +1,7 @@
-import './globals.scss'
+import './globals.scss';
 
 import Navbar from './components/Navbar';
-import { Providers } from './providers';
+import Providers from './providers';
 
 export const metadata = {
   title: 'ChainRaise',

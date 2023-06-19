@@ -1,15 +1,15 @@
 import UseNetworkWrapper from '@/app/components/UseNetworkWrapper';
-import Campaign from '../components/Campaign';
+import MintForm from './components/MintForm';
 
 export const metadata = {
-    title: 'ChainRaise: Funding Campaign',
+    title: 'ChainRaise: Mint test tokens',
 };
 
-export default function Fund({ params: { id } }: { params: { id: string; }; }) {
+export default function Mint() {
     return (
         <main className="main">
             <UseNetworkWrapper>
-                <Campaign campaignId={id} />
+                <MintForm />
             </UseNetworkWrapper>
         </main>
     );

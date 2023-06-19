@@ -1,7 +1,5 @@
 'use client';
 
-import { formatUnits } from 'ethers/lib/utils';
-
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
@@ -9,35 +7,67 @@ dayjs.extend(utc);
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 dayjs.extend(localizedFormat);
 
-import { useEthers, useCall, useLookupAddress } from '@usedapp/core';
+import { useCallback, useEffect, useState } from 'react';
+import { useContractRead, useEnsName, useNetwork, usePublicClient } from 'wagmi';
+import { decodeAbiParameters, formatUnits, parseAbiItem, parseAbiParameters, sliceHex } from 'viem';
 
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { findToken } from '@/app/common';
+import { toHTML } from '@/app/utils';
 
 import FundForm from './FundForm';
+import { MarkDown } from '@/gen/app/models/markdown';
 
 export default function Campaign({ campaignId }: { campaignId: string; }) {
-    const { chainId, library } = useEthers();
-    const chainRaise = getChainRaiseContract(library!);
+    const chain = useNetwork().chain!;
+    const chainRaise = getChainRaiseContract();
+    const publicClient = usePublicClient();
 
-    const result = useCall({
-        contract: chainRaise,
-        method: 'campaigns',
-        args: [campaignId]
+    const { data: campaign, error } = useContractRead({
+        address: chainRaise.address,
+        abi: chainRaise.abi,
+        functionName: 'getCampaign',
+        args: [BigInt(campaignId)],
+        watch: true
     });
 
-    const campaign = result?.value;
-    const ens = useLookupAddress(campaign?.creator)?.ens;
+    useEffect(() => {
+        const getFliterLogs = async () => {
+            const filter = await publicClient.createContractEventFilter({
+                address: chainRaise.address,
+                abi: chainRaise.abi,
+                eventName: 'CampaignCreated',
+                fromBlock: 'earliest',
+                args: {
+                    campaignId: BigInt(campaignId)
+                }
+            });
 
-    if (result?.error) {
-        return (<div>Error {result?.error.message}...</div>);
+            const logs = await publicClient.getFilterLogs({ filter });
+            const tx = await publicClient.getTransaction({ hash: logs[0].transactionHash! });
+            const abi = parseAbiParameters('address token, uint256 goal, uint256 deadline, bytes calldata description');
+            //const input = decodeAbiParameters(abi, tx.input);
+            const input = Buffer.from(tx.input.slice(330), 'hex');
+            const markdown = MarkDown.decode(input);
+            setDescription(await toHTML(markdown));
+            return logs;
+        };
+        getFliterLogs().catch(console.error);
+    }, [campaignId, chainRaise.abi, chainRaise.address, publicClient]);
+
+    //const { data: ens } = useEnsName({ address: campaign?.creator });
+    const ens = undefined;
+    const [description, setDescription] = useState('');
+
+    if (error) {
+        return (<pre>Error {error.message}...</pre>);
     }
 
     if (!campaign) {
         return (<div>Loading...</div>);
     }
 
-    const token = findToken(campaign.token, chainId!);
+    const token = findToken(campaign.token, chain.id);
     const deadline = dayjs.unix(campaign.deadline).local().format('LLL');
 
     return (
@@ -53,12 +83,12 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
                         <tr><td>Goal</td><td>{formatUnits(campaign.goal, token.decimals)}</td></tr>
                         <tr><td>Raised</td><td>{formatUnits(campaign.raisedAmount, token.decimals)}</td></tr>
                         <tr><td>Deadline</td><td>{deadline}</td></tr>
-                        <tr><td>Metadata</td><td>{campaign.metadata}</td></tr>
+                        <tr><td>Description</td><td dangerouslySetInnerHTML={{ __html: description }} /></tr>
                     </tbody>
                 </table>
             </div>
             <div className="pt-3 column">
-                <FundForm campaignId={campaignId} address={campaign.token} />
+                {/*<FundForm campaignId={campaignId} address={campaign.token} />*/}
             </div>
         </div>
     );

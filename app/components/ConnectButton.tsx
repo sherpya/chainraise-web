@@ -1,15 +1,38 @@
-import { useEthers } from '@usedapp/core';
+'use client';
+
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
 
 export default function ConnectButton() {
-    const { isLoading, account, deactivate, activateBrowserWallet } = useEthers();
+    const { isConnected } = useAccount();
+    const { connect, connectors, error, isLoading, pendingConnector } = useConnect();
+    const { disconnect } = useDisconnect();
 
-    if (isLoading) {
-        return (<div>Loading...</div>);
+    if (isConnected) {
+        return (
+            <div>
+                <button className="button is-primary" onClick={() => disconnect()}>Disconnect</button>
+            </div>
+        );
     }
 
-    if (account) {
-        return (<button className="button is-primary" onClick={deactivate}>Disconnect</button>);
-    }
+    return (
+        <div>
+            {connectors.map((connector) => (
+                <button
+                    className="button is-primary"
+                    disabled={!connector.ready}
+                    key={connector.id}
+                    onClick={() => connect({ connector })}
+                >
+                    {connector.name}
+                    {!connector.ready && ' (unsupported)'}
+                    {isLoading &&
+                        connector.id === pendingConnector?.id &&
+                        ' (connecting)'}
+                </button>
+            ))}
 
-    return (<button className="button is-primary" onClick={activateBrowserWallet}>Connect</button>);
+            {error && <div>{error.message}</div>}
+        </div>
+    );
 }

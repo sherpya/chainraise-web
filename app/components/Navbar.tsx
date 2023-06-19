@@ -46,8 +46,8 @@ export default function Navbar() {
                         </Link>
                     </div>
                     <div className="navbar-item">
-                        <Link href="/claim" className="navbar-item">
-                            Claim
+                        <Link href="/mint" className="navbar-item">
+                            Mint
                         </Link>
                     </div>
                     <div className="navbar-item">

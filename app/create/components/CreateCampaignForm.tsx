@@ -4,57 +4,90 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { useContractFunction, useEthers } from '@usedapp/core';
+import { Controller, useForm } from 'react-hook-form';
 import { ErrorMessage } from '@hookform/error-message';
 import { yupResolver } from '@hookform/resolvers/yup';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { watchContractEvent } from '@wagmi/core';
+import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
 
-import { TOKENS } from '@/app/common';
+import { TOKENS, formatError } from '@/app/common';
 import { Campaign, campaignSchema } from '@/app/models/Campaign';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
+import { toMarkdown } from '@/app/utils';
 
-import type { CampaignForm } from '@/app/models/Campaign';
-import { useEffect } from 'react';
 
 export default function CreateCampaignForm() {
-    const { library } = useEthers();
+    const chain = useNetwork().chain!;
 
     const router = useRouter();
     const resolver = yupResolver(campaignSchema);
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CampaignForm>({
+    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
         resolver,
         defaultValues: {
             amount: 1,
-            expiration: dayjs.utc().add(1, 'hour').local().format('YYYY-MM-DDTHH:mm')
+            expiration: dayjs.utc().add(6, 'hour').local().format('YYYY-MM-DDTHH:mm')
         }
     });
 
-    const chainRaise = getChainRaiseContract(library!);
+    const chainRaise = getChainRaiseContract();
+    const [campaign, setCampaign] = useState<Campaign | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    const { state, send, events } = useContractFunction(chainRaise, 'createCampaign', {
-        transactionName: 'createCampaign'
+    const { config } = usePrepareContractWrite({
+        enabled: campaign != null,
+        address: chainRaise.address,
+        abi: chainRaise.abi,
+        functionName: 'createCampaign',
+        args: campaign?.toArgs()
     });
 
-    const { status, errorMessage } = state;
-
-    const chainId = library?.network?.chainId ?? 0;
-
-    const onSubmit = handleSubmit((values) => {
-        const campaign = new Campaign(values, chainId);
-        return send(campaign.token.address, campaign.amount, campaign.expiration, '');
+    const { data, status, isLoading, writeAsync: createCampaign, error: createCampaignError } = useContractWrite(config);
+    useWaitForTransaction({
+        hash: data?.hash,
+        onSuccess(data) {
+            const unwatch = watchContractEvent({
+                address: chainRaise.address,
+                abi: chainRaise.abi,
+                eventName: 'CampaignCreated'
+            }, (events) => {
+                unwatch();
+                const event = events.findLast((event) => event.transactionHash == data.transactionHash);
+                if (!event) {
+                    throw Error('CampaignCreated Event not found');
+                }
+                const { campaignId } = event.args;
+                router.push(`/fund/${campaignId}`);
+            });
+        }
     });
 
     useEffect(() => {
-        if (events) {
-            const { campaignId } = events.at(-1)!.args;
-            router.push(`/fund/${campaignId}`);
+        if (createCampaignError) {
+            setError(formatError(createCampaignError));
+            setCampaign(null);
         }
-    }, [router, events]);
+    }, [createCampaignError]);
+
+    const onSubmit = handleSubmit(async (values) => {
+        const description = toMarkdown(values.description);
+        const campaign = new Campaign(values, chain.id, description);
+        setError(null);
+        setCampaign(campaign);
+    });
+
+    useEffect(() => {
+        if (campaign) {
+            createCampaign?.().then(console.log).catch(console.error);
+        }
+    }, [campaign, createCampaign]);
 
     return (
         <div className="container">
-            <div>Status: {status}{errorMessage && ` - ${errorMessage}`}</div>
+            <div>Status: {status}</div>
             <form onSubmit={onSubmit}>
                 <div className="field">
                     <label className="label" htmlFor="title">Title</label>
@@ -65,7 +98,20 @@ export default function CreateCampaignForm() {
                 <div className="field">
                     <label className="label" htmlFor="description">Description</label>
                     <div className="control">
-                        <textarea className="textarea" {...register("description", {})} />
+                        <Controller
+                            name="description"
+                            control={control}
+                            render={({ field }) => (
+                                <ReactQuill {...field} theme="snow"
+                                    onChange={(text) => field.onChange(text)}
+                                    modules={{
+                                        toolbar: [
+                                            [{ 'header': [1, 2, 3, false] }],
+                                            ['bold', 'italic', 'image']
+                                        ]
+                                    }} />
+                            )}
+                        />
                     </div>
                 </div>
 
@@ -79,7 +125,7 @@ export default function CreateCampaignForm() {
                     <div className="control">
                         <div className="select">
                             <select {...register("token")}>
-                                {TOKENS[chainId].map((token) => <option key={token.name} value={token.address}>{token.name}</option>)}
+                                {TOKENS[chain.id].map((token) => <option key={token.name} value={token.address}>{token.name}</option>)}
                             </select>
                         </div>
                     </div>
@@ -95,10 +141,12 @@ export default function CreateCampaignForm() {
 
                 <div className="field">
                     <div className="control">
-                        <button disabled={isSubmitting} className="button is-link">Submit</button>
+                        <button disabled={isSubmitting || isLoading} className="button is-link">Submit</button>
                     </div>
                 </div>
             </form>
+
+            {error && <pre>{error}</pre>}
         </div>
     );
 }

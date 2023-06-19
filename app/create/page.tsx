@@ -1,4 +1,4 @@
-import UseEthersWrapper from '../components/UseEthersWrapper';
+import UseNetworkWrapper from '../components/UseNetworkWrapper';
 import CreateCampaignForm from './components/CreateCampaignForm';
 
 export const metadata = {
@@ -8,9 +8,9 @@ export const metadata = {
 export default function Create() {
     return (
         <main className="main">
-            <UseEthersWrapper>
+            <UseNetworkWrapper>
                 <CreateCampaignForm />
-            </UseEthersWrapper>
+            </UseNetworkWrapper>
         </main>
     )
 }
