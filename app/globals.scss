@@ -26,10 +26,9 @@ body {
 }
 
 .main {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    @extend .mx-auto;
     padding: 2rem;
+    width: 75%;
 }
 
 td:first-child {
@@ -37,26 +36,9 @@ td:first-child {
     width: 35%;
 }
 
-@include until($tablet) {
-    table {
-        width: 100%;
-    }
-
-    td {
-        max-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
-
-/*! debug.css | MIT License | zaydek.github.com/debug.css */
 /*
 *:not(path):not(g) {
-    color: hsla(210, 100%, 100%, 0.9) !important;
-    background: hsla(210, 100%, 50%, 0.5) !important;
-    outline: solid 0.25rem hsla(210, 100%, 100%, 0.5) !important;
-
+    outline: solid 1px red !important;
     box-shadow: none !important;
 }
 */

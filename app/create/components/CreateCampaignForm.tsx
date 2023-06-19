@@ -11,7 +11,7 @@ import { ErrorMessage } from '@hookform/error-message';
 import { yupResolver } from '@hookform/resolvers/yup';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { watchContractEvent } from '@wagmi/core';
+import { decodeEventLog } from 'viem';
 import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
 
 import { TOKENS, formatError } from '@/app/common';
@@ -46,24 +46,25 @@ export default function CreateCampaignForm() {
     });
 
     const { data, status, isLoading, writeAsync: createCampaign, error: createCampaignError } = useContractWrite(config);
-    useWaitForTransaction({
-        hash: data?.hash,
-        onSuccess(data) {
-            const unwatch = watchContractEvent({
-                address: chainRaise.address,
-                abi: chainRaise.abi,
-                eventName: 'CampaignCreated'
-            }, (events) => {
-                unwatch();
-                const event = events.findLast((event) => event.transactionHash == data.transactionHash);
-                if (!event) {
-                    throw Error('CampaignCreated Event not found');
-                }
-                const { campaignId } = event.args;
-                router.push(`/fund/${campaignId}`);
-            });
-        }
+
+    const { data: tx } = useWaitForTransaction({
+        hash: data?.hash
     });
+
+    useEffect(() => {
+        if (!tx || !tx.logs.at(-1)) {
+            return;
+        }
+        const log = tx.logs.at(-1)!;
+        const event = decodeEventLog({
+            abi: chainRaise.abi,
+            data: log.data,
+            eventName: 'CampaignCreated',
+            topics: log.topics
+        });
+        const { campaignId } = event.args;
+        router.push(`/fund/${campaignId}`);
+    }, [chainRaise.abi, router, tx]);
 
     useEffect(() => {
         if (createCampaignError) {

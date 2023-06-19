@@ -46,9 +46,8 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
             const logs = await publicClient.getFilterLogs({ filter });
             const tx = await publicClient.getTransaction({ hash: logs[0].transactionHash! });
             const abi = parseAbiParameters('address token, uint256 goal, uint256 deadline, bytes calldata description');
-            //const input = decodeAbiParameters(abi, tx.input);
-            const input = Buffer.from(tx.input.slice(330), 'hex');
-            const markdown = MarkDown.decode(input);
+            const input = decodeAbiParameters(abi, `0x${tx.input.slice(10)}`);
+            const markdown = MarkDown.decode(Buffer.from(input[3].slice(2), 'hex'));
             setDescription(await toHTML(markdown));
             return logs;
         };
@@ -71,7 +70,7 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
     const deadline = dayjs.unix(campaign.deadline).local().format('LLL');
 
     return (
-        <div className="container columns">
+        <div className="columns is-desktop">
             <div className="column">
                 <table className="table is-narrow is-bordered is-hoverable">
                     <thead>
@@ -88,7 +87,7 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
                 </table>
             </div>
             <div className="pt-3 column">
-                {/*<FundForm campaignId={campaignId} address={campaign.token} />*/}
+                <FundForm campaignId={campaignId} address={campaign.token} />
             </div>
         </div>
     );

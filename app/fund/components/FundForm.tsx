@@ -24,12 +24,11 @@ export default function FundForm({ campaignId, address }: { campaignId: string, 
             .positive('amount must be greater than 0')
     });
 
-    type FundForm = yup.InferType<typeof fundSchema>;
     const defaultAmount = 1.0;
     const defaultAmountUnits = parseUnits(`${defaultAmount}`, token.decimals);
 
     const resolver = yupResolver(fundSchema);
-    const { register, handleSubmit, reset: resetForm, formState: { errors } } = useForm<FundForm>({
+    const { register, handleSubmit, reset: resetForm, formState: { errors } } = useForm({
         resolver,
         defaultValues: {
             amount: defaultAmount
