@@ -22,7 +22,7 @@
     "@hookform/error-message": "^2.0.1",
     "@hookform/resolvers": "^3.1.1",
     "@reduxjs/toolkit": "^1.9.5",
-    "abitype": "^0.8.10",
+    "abitype": "^0.8.11",
     "bulma": "^0.9.4",
     "dayjs": "^1.11.8",
     "hast-util-sanitize": "^4.1.0",
@@ -34,13 +34,13 @@
     "react-hook-form": "^7.45.0",
     "react-query": "^3.39.3",
     "react-quill": "^2.0.0",
-    "react-redux": "^8.1.0",
+    "react-redux": "^8.1.1",
     "remark": "^14.0.3",
     "remark-html": "^15.0.2",
     "turndown": "^7.1.2",
     "unified": "^10.1.2",
     "unist-util-visit": "^4.1.2",
-    "viem": "^1.0.7",
+    "viem": "^1.1.1",
     "wagmi": "^1.2.0",
     "yup": "^1.2.0"
   },
@@ -52,8 +52,8 @@
     "@wagmi/cli": "^1.2.0",
     "eslint": "^8.43.0",
     "eslint-config-next": "^13.4.6",
-    "sass": "^1.63.4",
-    "ts-proto": "^1.149.0",
+    "sass": "^1.63.5",
+    "ts-proto": "^1.150.0",
     "typescript": "^5.1.3"
   }
 }
