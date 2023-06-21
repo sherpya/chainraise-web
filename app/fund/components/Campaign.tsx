@@ -46,7 +46,8 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
             const logs = await publicClient.getFilterLogs({ filter });
             const tx = await publicClient.getTransaction({ hash: logs[0].transactionHash! });
             const abi = parseAbiParameters('address token, uint256 goal, uint256 deadline, bytes calldata description');
-            const input = decodeAbiParameters(abi, `0x${tx.input.slice(10)}`);
+            const txInput = sliceHex(tx.input, 4);
+            const input = decodeAbiParameters(abi, txInput);
             const markdown = MarkDown.decode(Buffer.from(input[3].slice(2), 'hex'));
             setDescription(await toHTML(markdown));
             return logs;
