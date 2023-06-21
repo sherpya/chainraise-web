@@ -27,7 +27,7 @@
     "dayjs": "^1.11.8",
     "hast-util-sanitize": "^4.1.0",
     "jssha": "^3.3.0",
-    "next": "13.4.6",
+    "next": "13.4.7",
     "next-redux-wrapper": "^8.1.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
