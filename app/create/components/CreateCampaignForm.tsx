@@ -29,7 +29,7 @@ export default function CreateCampaignForm() {
         resolver,
         defaultValues: {
             amount: 1,
-            expiration: dayjs.utc().add(6, 'hour').local().format('YYYY-MM-DDTHH:mm')
+            expiration: dayjs.utc().add(1, 'day').local().format('YYYY-MM-DDTHH:mm')
         }
     });
 
