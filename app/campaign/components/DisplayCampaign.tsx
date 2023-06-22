@@ -13,7 +13,7 @@ import { mainnet, useContractRead, useEnsAvatar, useEnsName, useNetwork, usePubl
 import { decodeAbiParameters, parseAbiParameters, sliceHex } from 'viem';
 
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
-import { toHTML } from '@/app/utils';
+import { fromMessage } from '@/app/utils';
 
 import FundForm from './FundForm';
 import WithdrawForm from './WithdrawForm';
@@ -25,6 +25,8 @@ export default function DisplayCampaign({ campaignId }: { campaignId: bigint; })
     const chainRaise = getChainRaiseContract();
     const publicClient = usePublicClient();
     const [campaign, setCampaign] = useState<Campaign | undefined>();
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
 
     const { data, error } = useContractRead({
         address: chainRaise.address,
@@ -57,7 +59,9 @@ export default function DisplayCampaign({ campaignId }: { campaignId: bigint; })
             const abi = parseAbiParameters('address token, uint256 goal, uint256 deadline, bytes calldata description');
             const input = decodeAbiParameters(abi, sliceHex(tx.input, 4));
             const markdown = MarkDown.decode(Buffer.from(input[3].slice(2), 'hex'));
-            setDescription(await toHTML(markdown));
+            const { title: _title, body } = await fromMessage(markdown);
+            setTitle(_title);
+            setDescription(body);
             return logs;
         };
         getFliterLogs().catch(console.error);
@@ -65,7 +69,6 @@ export default function DisplayCampaign({ campaignId }: { campaignId: bigint; })
 
     const { data: ens } = useEnsName({ address: campaign?.creator, enabled: !!campaign?.creator, chainId: mainnet.id });
     const { data: ensAvatar } = useEnsAvatar({ name: ens, chainId: mainnet.id });
-    const [description, setDescription] = useState('');
 
     if (error) {
         return (<pre>Error {error.message}...</pre>);
@@ -94,7 +97,7 @@ export default function DisplayCampaign({ campaignId }: { campaignId: bigint; })
             <div className="column">
                 <table className="table is-narrow is-bordered is-hoverable">
                     <thead>
-                        <tr><td>Campaign</td><td>{campaignId.toString()}</td></tr>
+                        <tr><td>Campaign</td><td>{title}</td></tr>
                     </thead>
                     <tbody>
                         <tr>

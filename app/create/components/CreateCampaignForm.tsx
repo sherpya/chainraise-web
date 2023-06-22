@@ -17,7 +17,7 @@ import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransa
 import { TOKENS, formatError } from '@/app/common';
 import { Campaign, campaignSchema } from '@/app/models/Campaign';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
-import { toMarkdown } from '@/app/utils';
+import { toMessage } from '@/app/utils';
 
 
 export default function CreateCampaignForm() {
@@ -74,8 +74,8 @@ export default function CreateCampaignForm() {
     }, [createCampaignError]);
 
     const onSubmit = handleSubmit(async (values) => {
-        const blob = toMarkdown(values.description);
-        const campaign = Campaign.fromForm(values, chain.id, blob);
+        const message = toMessage(values.title, values.description);
+        const campaign = Campaign.fromForm(values, chain.id, message);
         setError(null);
         setCampaign(campaign);
     });

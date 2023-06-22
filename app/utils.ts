@@ -8,7 +8,7 @@ import TurndownService, { Rule } from 'turndown';
 
 import { Attachment, MarkDown } from '@/gen/app/models/markdown';
 
-export function toMarkdown(html: string | undefined) {
+export function toMessage(title: string, html: string | undefined) {
     const attachments: Record<string, Attachment> = {};
     const turndownService = new TurndownService().addRule('img', {
         filter: 'img',
@@ -36,8 +36,9 @@ export function toMarkdown(html: string | undefined) {
     });
     const body = turndownService.turndown(html || '');
     const markdown: MarkDown = {
-        body: new TextEncoder().encode(body),
-        attachments: attachments
+        title,
+        body,
+        attachments
     };
     return MarkDown.encode(markdown).finish();
 }
@@ -66,12 +67,10 @@ function importImages(this: Processor, options: { attachments: MarkDown['attachm
     };
 }
 
-export async function toHTML(markdown: MarkDown) {
-    const body = new TextDecoder().decode(markdown.body);
-
+export async function fromMessage(markdown: MarkDown) {
     const processedContent = await remark()
         .use(importImages, { attachments: markdown.attachments })
         .use(html, { sanitize: schema })
-        .process(body);
-    return processedContent.toString();
+        .process(markdown.body);
+    return { title: markdown.title, body: processedContent.toString() };
 }

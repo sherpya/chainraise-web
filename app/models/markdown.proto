@@ -6,6 +6,7 @@ message Attachment {
 }
 
 message MarkDown {
-  bytes body = 1;
-  map<string, Attachment> attachments = 2;
+  string title = 1;
+  string body = 2;
+  map<string, Attachment> attachments = 3;
 }
