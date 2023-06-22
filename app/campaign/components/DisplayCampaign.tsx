@@ -10,28 +10,35 @@ dayjs.extend(localizedFormat);
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { mainnet, useContractRead, useEnsAvatar, useEnsName, useNetwork, usePublicClient } from 'wagmi';
-import { decodeAbiParameters, formatUnits, parseAbiParameters, sliceHex } from 'viem';
+import { decodeAbiParameters, parseAbiParameters, sliceHex } from 'viem';
 
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
-import { findToken } from '@/app/common';
 import { toHTML } from '@/app/utils';
 
 import FundForm from './FundForm';
 import WithdrawForm from './WithdrawForm';
 import { MarkDown } from '@/gen/app/models/markdown';
+import { Campaign } from '@/app/models/Campaign';
 
-export default function Campaign({ campaignId }: { campaignId: bigint; }) {
+export default function DisplayCampaign({ campaignId }: { campaignId: bigint; }) {
     const chain = useNetwork().chain!;
     const chainRaise = getChainRaiseContract();
     const publicClient = usePublicClient();
+    const [campaign, setCampaign] = useState<Campaign | undefined>();
 
-    const { data: campaign, error } = useContractRead({
+    const { data, error } = useContractRead({
         address: chainRaise.address,
         abi: chainRaise.abi,
         functionName: 'getCampaign',
         args: [campaignId],
         watch: true
     });
+
+    useEffect(() => {
+        if (data) {
+            setCampaign(Campaign.fromChain({ chainId: chain.id, campaignId, ...data }));
+        }
+    }, [campaignId, chain.id, data]);
 
     useEffect(() => {
         const getFliterLogs = async () => {
@@ -57,7 +64,7 @@ export default function Campaign({ campaignId }: { campaignId: bigint; }) {
         getFliterLogs().catch(console.error);
     }, [campaignId, chainRaise.abi, chainRaise.address, publicClient]);
 
-    const { data: ens } = useEnsName({ address: campaign?.creator, chainId: mainnet.id });
+    const { data: ens } = useEnsName({ address: campaign?.creator, enabled: !!campaign?.creator, chainId: mainnet.id });
     const { data: ensAvatar } = useEnsAvatar({ name: ens, chainId: mainnet.id });
     const [description, setDescription] = useState('');
 
@@ -68,9 +75,6 @@ export default function Campaign({ campaignId }: { campaignId: bigint; }) {
     if (!campaign) {
         return (<div>Loading...</div>);
     }
-
-    const token = findToken(campaign.token, chain.id);
-    const deadline = dayjs.unix(campaign.deadline).local().format('LLL');
 
     const Avatar = () => {
         return (
@@ -103,19 +107,19 @@ export default function Campaign({ campaignId }: { campaignId: bigint; }) {
                                 </div>
                             </td>
                         </tr>
-                        <tr><td>Token</td><td>{token.name}</td></tr>
-                        <tr><td>Goal</td><td>{formatUnits(campaign.goal, token.decimals)}</td></tr>
-                        <tr><td>Raised</td><td>{formatUnits(campaign.raisedAmount, token.decimals)}</td></tr>
-                        <tr><td>Deadline</td><td>{deadline}</td></tr>
+                        <tr><td>Token</td><td>{campaign.token.name}</td></tr>
+                        <tr><td>Goal</td><td>{campaign.formatUnits(campaign.goal)}</td></tr>
+                        <tr><td>Raised</td><td>{campaign.formatUnits(campaign.raisedAmount)}</td></tr>
+                        <tr><td>Deadline</td><td>{dayjs.unix(campaign.deadline).local().format('LLL')}</td></tr>
                         <tr><td>Description</td><td dangerouslySetInnerHTML={{ __html: description }} /></tr>
                     </tbody>
                 </table>
             </div>
             <div className="pt-3 column">
-                <FundForm campaignId={campaignId} address={campaign.token} />
+                <FundForm campaign={campaign} />
             </div>
             <div className="pt-3 column">
-                <WithdrawForm campaignId={campaignId} address={campaign.token} />
+                <WithdrawForm campaign={campaign} />
             </div>
         </div>
     );

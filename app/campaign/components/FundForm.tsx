@@ -1,21 +1,17 @@
-'use client';
-
 import * as yup from 'yup';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ErrorMessage } from '@hookform/error-message';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { erc20ABI, useAccount, useBalance, usePrepareContractWrite, useContractWrite, useNetwork, useWaitForTransaction } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
 
-import { findToken, formatError } from '@/app/common';
+import { formatError } from '@/app/common';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { useAllowance } from '@/src/wagmi/hooks/useAllowance';
+import { Campaign } from '@/app/models/Campaign';
 
-export default function FundForm({ campaignId, address }: { campaignId: bigint, address: string; }) {
-    const chain = useNetwork().chain!;
+export default function FundForm({ campaign }: { campaign: Campaign; }) {
     const account = useAccount();
-    const token = findToken(address, chain.id);
 
     const fundSchema = yup.object({
         amount: yup.number()
@@ -24,8 +20,10 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
             .positive('amount must be greater than 0')
     });
 
+    // FIXME: check deadline
+
     const defaultAmount = 1.0;
-    const defaultAmountUnits = parseUnits(`${defaultAmount}`, token.decimals);
+    const defaultAmountUnits = campaign.parseUnits(defaultAmount);
 
     const resolver = yupResolver(fundSchema);
     const { register, handleSubmit, reset: resetForm, formState: { errors } } = useForm({
@@ -37,7 +35,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
 
     const { data: balance } = useBalance({
         address: account.address,
-        token: token.address,
+        token: campaign.token.address,
         watch: true
     });
 
@@ -50,7 +48,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
     const { data: allowance } = useAllowance({
         owner: account.address,
         spender: chainRaise.address,
-        token: token.address,
+        token: campaign.token.address,
         watch: true
     });
 
@@ -58,8 +56,8 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
     const [canFund, setCanFund] = useState(false);
 
     useEffect(() => {
-        console.log(`${canFund} - ${formatUnits(amount, token.decimals)}`);
-    }, [canFund, amount, token.decimals]);
+        console.log(`${canFund} - ${campaign.formatUnits(amount)}`);
+    }, [canFund, amount, campaign]);
 
     useEffect(() => {
         console.log(((allowance?.value ?? 0) >= amount));
@@ -72,7 +70,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
     /* approve */
     const { config: approveConfig }
         = usePrepareContractWrite({
-            address: token.address,
+            address: campaign.token.address,
             abi: erc20ABI,
             functionName: 'approve',
             args: [chainRaise.address, amount],
@@ -93,7 +91,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
             address: chainRaise.address,
             abi: chainRaise.abi,
             functionName: 'fund',
-            args: [BigInt(campaignId), amount]
+            args: [campaign.campaignId, amount]
         });
     const { data: fundData, status: fundStatus, error: fundError, write: fund }
         = useContractWrite(fundConfig);
@@ -125,11 +123,11 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
             return;
         }
         try {
-            const parsedAmount = parseUnits(`${parseFloat(event.target.value)}`, token.decimals);
+            const parsedAmount = campaign.parseUnits(parseFloat(event.target.value));
             setCanFund(false);
             setAmount(parsedAmount);
         } catch (error) {
-            event.target.value = formatUnits(amount, token.decimals);
+            event.target.value = campaign.formatUnits(amount);
         }
     };
 
@@ -140,7 +138,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
     const onSubmit = handleSubmit((values) => {
         setError(null);
         setBusy(true);
-        setAmount(parseUnits(`${values.amount}`, token.decimals));
+        setAmount(campaign.parseUnits(values.amount));
         canFund ? fund?.() : approve?.();
     });
 
@@ -149,7 +147,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
             <div>Status: {status}</div>
             <div>Balance: {balance && balance.formatted} -
                 Allowance: {allowance && allowance.formatted} -
-                Amount: {formatUnits(amount, token.decimals)} -
+                Amount: {campaign.formatUnits(amount)} -
                 CanFund: {canFund && 'yes' || 'no'}</div>
             <form onSubmit={onSubmit}>
                 <div className="field">
@@ -163,7 +161,7 @@ export default function FundForm({ campaignId, address }: { campaignId: bigint, 
                 <div className="field">
                     <div className="control">
                         <button disabled={disabled || busy} className="button is-link">
-                            {canFund && 'Fund' || 'Approve'} {formatUnits(amount, token.decimals)} {token.name}
+                            {canFund && 'Fund' || 'Approve'} {campaign.formatUnits(amount)} {campaign.token.name}
                         </button>
                     </div>
                 </div>

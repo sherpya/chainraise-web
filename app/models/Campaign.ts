@@ -4,7 +4,8 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
 
-import { Address, Hex, parseUnits, toHex } from 'viem';
+import { Address, Hex, toHex, zeroAddress } from 'viem';
+import { formatUnits as fu, parseUnits as pu } from 'viem';
 
 import { Token } from './Token';
 import { TOKENS } from '../common';
@@ -34,28 +35,87 @@ export const campaignSchema = yup.object({
 export type CampaignForm = yup.InferType<typeof campaignSchema>;
 
 export class Campaign {
-    public chainId: number;
-    public title: string;
-    public description?: Uint8Array;
-    public expiration: bigint;
-    public token: Token;
-    public amount: bigint;
-
-    constructor(campaign: CampaignForm, chainId: number, description?: Uint8Array) {
+    constructor(
+        public chainId: number,
+        public campaignId: bigint = BigInt(0),
+        public title: string,
+        public creator: Address = zeroAddress,
+        public deadline: number,
+        public token: Token,
+        public goal: bigint,
+        public closed: boolean = false,
+        public raisedAmount: bigint = BigInt(0),
+        public blob: Uint8Array = new Uint8Array(),
+    ) {
         this.chainId = chainId;
-        this.title = campaign.title.trim();
-        this.description = description;
-        this.token = TOKENS[chainId].find(token => token.address === campaign.token)!;
-        this.amount = parseUnits(`${campaign.amount}`, this.token.decimals);
-        this.expiration = BigInt(dayjs(campaign.expiration).utc().unix());
+        this.campaignId = campaignId;
+        this.title = title;
+        this.creator = creator;
+        this.blob = blob;
+        this.deadline = deadline;
+        this.token = token;
+        this.goal = goal;
+        this.blob = blob;
+        this.raisedAmount = raisedAmount;
+        this.closed = closed;
+
+    }
+
+    static fromForm(
+        campaign: CampaignForm,
+        chainId: number,
+        blob?: Uint8Array) {
+
+        const title = campaign.title.trim();
+        const deadline = dayjs(campaign.expiration).utc().unix();
+        const token = TOKENS[chainId].find(token => token.address === campaign.token);
+        if (!token) {
+            throw new Error('Unsupported Token');
+        }
+        const amount = pu(`${campaign.amount}`, token.decimals);
+
+        return new Campaign(chainId, undefined, title, undefined, deadline, token, amount, false, undefined, blob);
+    }
+
+    static fromChain({
+        chainId,
+        campaignId,
+        creator,
+        token,
+        deadline,
+        closed,
+        goal,
+        raisedAmount }: {
+            chainId: number,
+            campaignId: bigint,
+            creator: Address,
+            token: Address,
+            deadline: number,
+            closed: boolean,
+            goal: bigint,
+            raisedAmount: bigint;
+        }) {
+        const _token = TOKENS[chainId].find(t => t.address === token);
+        if (!_token) {
+            throw new Error('Unsupported Token');
+        }
+        return new Campaign(chainId, campaignId, 'title', creator, deadline, _token, goal, closed, raisedAmount);
+    }
+
+    formatUnits(value: bigint) {
+        return fu(value, this.token.decimals);
+    }
+
+    parseUnits(value: number) {
+        return pu(`${value}`, this.token.decimals);
     }
 
     toArgs(): [Address, bigint, bigint, Hex] {
         return [
             this.token.address,
-            this.amount,
-            this.expiration,
-            toHex(this.description || new Uint8Array())
+            this.goal,
+            BigInt(this.deadline),
+            toHex(this.blob || new Uint8Array())
         ];
     }
 }

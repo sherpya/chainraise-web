@@ -1,23 +1,21 @@
-'use client';
-
 import { useState } from 'react';
 import { useAccount, useNetwork } from 'wagmi';
 
 import { findToken } from '@/app/common';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { useContribution } from '@/app/hooks/useContribution';
+import { Campaign } from '@/app/models/Campaign';
 
-export default function WithdrawForm({ campaignId, address }: { campaignId: bigint, address: string; }) {
+export default function WithdrawForm({ campaign }: { campaign: Campaign; }) {
     const chain = useNetwork().chain!;
     const chainRaise = getChainRaiseContract();
     const account = useAccount();
-    const token = findToken(address, chain.id);
 
     const { data: contribution } = useContribution({
-        campaignId,
+        campaignId: campaign.campaignId,
         address: account.address,
         contract: chainRaise.address,
-        decimals: token.decimals,
+        decimals: campaign.token.decimals,
         watch: true
     });
 
@@ -30,7 +28,7 @@ export default function WithdrawForm({ campaignId, address }: { campaignId: bigi
 
     return (
         <div className="container">
-            <div>Contribution: {contribution && contribution.formatted} {token.name}</div>
+            <div>Contribution: {contribution && contribution.formatted} {campaign.token.name}</div>
             {error && <pre>{error}</pre>}
         </div>
     );

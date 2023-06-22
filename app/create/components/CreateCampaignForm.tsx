@@ -74,8 +74,8 @@ export default function CreateCampaignForm() {
     }, [createCampaignError]);
 
     const onSubmit = handleSubmit(async (values) => {
-        const description = toMarkdown(values.description);
-        const campaign = new Campaign(values, chain.id, description);
+        const blob = toMarkdown(values.description);
+        const campaign = Campaign.fromForm(values, chain.id, blob);
         setError(null);
         setCampaign(campaign);
     });
