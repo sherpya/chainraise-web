@@ -63,7 +63,7 @@ export default function CreateCampaignForm() {
             topics: log.topics
         });
         const { campaignId } = event.args;
-        router.push(`/fund/${campaignId}`);
+        router.push(`/campaign/${campaignId}`);
     }, [chainRaise.abi, router, tx]);
 
     useEffect(() => {

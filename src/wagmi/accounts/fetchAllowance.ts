@@ -1,21 +1,18 @@
 import { Address, ResolvedConfig } from 'abitype';
-import { readContracts, Unit } from 'wagmi';
+import { readContracts } from 'wagmi';
 import { ContractFunctionExecutionError, Hex, formatUnits, hexToString, trim } from 'viem';
 
 import { erc20ABI, erc20ABI_bytes32 } from '../constants';
-import { getUnit } from '../utils/getUnit';
 
 export type FetchAllowanceArgs = {
   /** Owner Address */
   owner: Address;
   /** Spender Address */
   spender: Address;
-  /** Chain id to use for provider */
-  chainId?: number;
-  /** Units for formatting output */
-  formatUnits?: Unit | number;
   /** ERC-20 address */
   token: Address;
+  /** Chain id to use for provider */
+  chainId?: number;
 };
 
 export type FetchAllowanceResult = {
@@ -25,13 +22,8 @@ export type FetchAllowanceResult = {
   value: ResolvedConfig['BigIntType'];
 };
 
-export async function fetchAllowance({
-  owner,
-  spender,
-  chainId,
-  formatUnits: unit,
-  token,
-}: FetchAllowanceArgs): Promise<FetchAllowanceResult> {
+export async function fetchAllowance({ owner, spender, token, chainId }
+  : FetchAllowanceArgs): Promise<FetchAllowanceResult> {
   type FetchContractAllowance = {
     abi: typeof erc20ABI | typeof erc20ABI_bytes32;
   };
@@ -43,17 +35,17 @@ export async function fetchAllowance({
         {
           ...erc20Config,
           functionName: 'allowance',
-          args: [owner, spender],
+          args: [owner, spender]
         },
         { ...erc20Config, functionName: 'decimals' },
-        { ...erc20Config, functionName: 'symbol' },
+        { ...erc20Config, functionName: 'symbol' }
       ],
     });
     return {
       decimals,
-      formatted: formatUnits(value ?? '0', getUnit(unit ?? decimals)),
+      formatted: formatUnits(value ?? '0', decimals),
       symbol: symbol as string, // protect against `ResolvedConfig['BytesType']`
-      value,
+      value
     };
   };
 
@@ -65,11 +57,11 @@ export async function fetchAllowance({
     // of a string.
     if (err instanceof ContractFunctionExecutionError) {
       const { symbol, ...rest } = await fetchContractAllowance({
-        abi: erc20ABI_bytes32,
+        abi: erc20ABI_bytes32
       });
       return {
         symbol: hexToString(trim(symbol as Hex, { dir: 'right' })),
-        ...rest,
+        ...rest
       };
     }
     throw err;

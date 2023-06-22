@@ -12,7 +12,7 @@ import { findToken, formatError } from '@/app/common';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { useAllowance } from '@/src/wagmi/hooks/useAllowance';
 
-export default function FundForm({ campaignId, address }: { campaignId: string, address: string; }) {
+export default function FundForm({ campaignId, address }: { campaignId: bigint, address: string; }) {
     const chain = useNetwork().chain!;
     const account = useAccount();
     const token = findToken(address, chain.id);

@@ -15,66 +15,45 @@ export type UseAllowanceArgs = Partial<FetchAllowanceArgs> & {
 
 export type UseAllowanceConfig = QueryConfig<FetchAllowanceResult, Error>;
 
-export const queryKey = ({
-  owner,
-  spender,
-  chainId,
-  formatUnits,
-  token,
-}: Partial<FetchAllowanceArgs> & {
-  chainId?: number;
-}) =>
-  [
-    {
-      entity: 'allowance',
-      owner: owner,
-      spender: spender,
-      chainId,
-      formatUnits,
-      token,
-    },
-  ] as const;
+export const queryKey = ({ owner, spender, token, chainId }
+  : Partial<FetchAllowanceArgs> & { chainId?: number; }) =>
+  [{
+    entity: 'allowance',
+    owner,
+    spender,
+    token,
+    chainId
+  }] as const;
 
-const queryFn = ({
-  queryKey: [
-    { owner, spender, chainId, formatUnits, token },
-  ],
-}: QueryFunctionArgs<typeof queryKey>) => {
+const queryFn = ({ queryKey: [{ owner, spender, token, chainId }] }
+  : QueryFunctionArgs<typeof queryKey>) => {
   if (!owner) throw new Error('owner address is required');
   if (!spender) throw new Error('spender address is required');
   if (!token) throw new Error('token is required');
-  return fetchAllowance({
-    owner,
-    spender,
-    chainId,
-    formatUnits,
-    token,
-  });
+  return fetchAllowance({ owner, spender, token, chainId });
 };
 
 export function useAllowance({
   owner,
   spender,
+  token,
   cacheTime,
   chainId: chainId_,
   enabled = true,
-  formatUnits,
   staleTime,
   suspense,
-  token,
   watch,
   onError,
   onSettled,
-  onSuccess,
+  onSuccess
 }: UseAllowanceArgs & UseAllowanceConfig = {}) {
   const chainId = useChainId({ chainId: chainId_ });
   const allowanceQuery = useQuery(
     queryKey({
       owner,
       spender,
-      chainId,
-      formatUnits,
       token,
+      chainId
     }),
     queryFn,
     {
@@ -84,8 +63,8 @@ export function useAllowance({
       suspense,
       onError,
       onSettled,
-      onSuccess,
-    },
+      onSuccess
+    }
   );
 
   const { data: blockNumber } = useBlockNumber({ chainId, watch });

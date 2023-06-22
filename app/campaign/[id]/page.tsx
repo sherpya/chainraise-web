@@ -5,7 +5,7 @@ export const metadata = {
     title: 'ChainRaise: Funding Campaign',
 };
 
-export default function Fund({ params: { id } }: { params: { id: string; }; }) {
+export default function Fund({ params: { id } }: { params: { id: bigint; }; }) {
     return (
         <main className="main">
             <UseNetworkWrapper>

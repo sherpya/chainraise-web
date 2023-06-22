@@ -7,18 +7,20 @@ dayjs.extend(utc);
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 dayjs.extend(localizedFormat);
 
-import { useCallback, useEffect, useState } from 'react';
-import { useContractRead, useEnsName, useNetwork, usePublicClient } from 'wagmi';
-import { decodeAbiParameters, formatUnits, parseAbiItem, parseAbiParameters, sliceHex } from 'viem';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { mainnet, useContractRead, useEnsAvatar, useEnsName, useNetwork, usePublicClient } from 'wagmi';
+import { decodeAbiParameters, formatUnits, parseAbiParameters, sliceHex } from 'viem';
 
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { findToken } from '@/app/common';
 import { toHTML } from '@/app/utils';
 
 import FundForm from './FundForm';
+import WithdrawForm from './WithdrawForm';
 import { MarkDown } from '@/gen/app/models/markdown';
 
-export default function Campaign({ campaignId }: { campaignId: string; }) {
+export default function Campaign({ campaignId }: { campaignId: bigint; }) {
     const chain = useNetwork().chain!;
     const chainRaise = getChainRaiseContract();
     const publicClient = usePublicClient();
@@ -27,7 +29,7 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
         address: chainRaise.address,
         abi: chainRaise.abi,
         functionName: 'getCampaign',
-        args: [BigInt(campaignId)],
+        args: [campaignId],
         watch: true
     });
 
@@ -39,7 +41,7 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
                 eventName: 'CampaignCreated',
                 fromBlock: 'earliest',
                 args: {
-                    campaignId: BigInt(campaignId)
+                    campaignId: campaignId
                 }
             });
 
@@ -55,8 +57,8 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
         getFliterLogs().catch(console.error);
     }, [campaignId, chainRaise.abi, chainRaise.address, publicClient]);
 
-    //const { data: ens } = useEnsName({ address: campaign?.creator });
-    const ens = undefined;
+    const { data: ens } = useEnsName({ address: campaign?.creator, chainId: mainnet.id });
+    const { data: ensAvatar } = useEnsAvatar({ name: ens, chainId: mainnet.id });
     const [description, setDescription] = useState('');
 
     if (error) {
@@ -70,15 +72,37 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
     const token = findToken(campaign.token, chain.id);
     const deadline = dayjs.unix(campaign.deadline).local().format('LLL');
 
+    const Avatar = () => {
+        return (
+            <div style={{ borderRadius: '32px', overflow: 'hidden', width: '64px', height: '64px' }}>
+                {ensAvatar &&
+                    <Image
+                        src={ensAvatar}
+                        width={64}
+                        height={64}
+                        alt={ens || campaign.creator} />
+                }
+            </div>
+        );
+    };
+
     return (
         <div className="columns is-desktop">
             <div className="column">
                 <table className="table is-narrow is-bordered is-hoverable">
                     <thead>
-                        <tr><td>Campaign</td><td>{campaignId}</td></tr>
+                        <tr><td>Campaign</td><td>{campaignId.toString()}</td></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Creator</td><td>{ens ?? campaign.creator}</td></tr>
+                        <tr>
+                            <td>Creator</td>
+                            <td>
+                                <div className="p-4 columns is-vcentered">
+                                    <Avatar />
+                                    <div className="p-2">{ens || campaign.creator}</div>
+                                </div>
+                            </td>
+                        </tr>
                         <tr><td>Token</td><td>{token.name}</td></tr>
                         <tr><td>Goal</td><td>{formatUnits(campaign.goal, token.decimals)}</td></tr>
                         <tr><td>Raised</td><td>{formatUnits(campaign.raisedAmount, token.decimals)}</td></tr>
@@ -89,6 +113,9 @@ export default function Campaign({ campaignId }: { campaignId: string; }) {
             </div>
             <div className="pt-3 column">
                 <FundForm campaignId={campaignId} address={campaign.token} />
+            </div>
+            <div className="pt-3 column">
+                <WithdrawForm campaignId={campaignId} address={campaign.token} />
             </div>
         </div>
     );
