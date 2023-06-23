@@ -1,17 +1,22 @@
 import * as yup from 'yup';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { BallTriangle } from 'react-loader-spinner';
 import { ErrorMessage } from '@hookform/error-message';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { erc20ABI, useAccount, useBalance, usePrepareContractWrite, useContractWrite, useNetwork, useWaitForTransaction } from 'wagmi';
+import { erc20ABI, useAccount, useBalance, usePrepareContractWrite, useContractWrite, useWaitForTransaction } from 'wagmi';
 
 import { formatError } from '@/app/common';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { useAllowance } from '@/src/wagmi/hooks/useAllowance';
 import { Campaign } from '@/app/models/Campaign';
+import { useAppDispatch, useAppSelector } from '@/app/redux/hooks';
+import { setIdle, setBusy, setApproved } from '@/app/redux/features/fundSlice';
 
 export default function FundForm({ campaign }: { campaign: Campaign; }) {
     const account = useAccount();
+    const status = useAppSelector((state) => state.fundSlice.status);
+    const dispatch = useAppDispatch();
 
     const fundSchema = yup.object({
         amount: yup.number()
@@ -21,6 +26,7 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
     });
 
     // FIXME: check deadline
+    // FIXME: reject on fund changes the button to approve
 
     const defaultAmount = 1.0;
     const defaultAmountUnits = campaign.parseUnits(defaultAmount);
@@ -39,11 +45,10 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
         watch: true
     });
 
+    const [error, setError] = useState<string | null>(null);
     const [disabled, setDisabled] = useState(false);
-    const [busy, setBusy] = useState(false);
 
     const chainRaise = getChainRaiseContract();
-    const [error, setError] = useState<string | null>(null);
 
     const { data: allowance } = useAllowance({
         owner: account.address,
@@ -53,19 +58,12 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
     });
 
     const [amount, setAmount] = useState(defaultAmountUnits);
-    const [canFund, setCanFund] = useState(false);
 
     useEffect(() => {
-        console.log(`${canFund} - ${campaign.formatUnits(amount)}`);
-    }, [canFund, amount, campaign]);
-
-    useEffect(() => {
-        console.log(((allowance?.value ?? 0) >= amount));
-        if ((allowance?.value ?? 0) >= amount) {
-            setBusy(false);
-            setCanFund(true);
+        if (allowance !== undefined) {
+            dispatch((allowance.value >= amount) ? setApproved() : setIdle());
         }
-    }, [allowance, amount]);
+    }, [allowance, amount, dispatch]);
 
     /* approve */
     const { config: approveConfig }
@@ -75,48 +73,43 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
             functionName: 'approve',
             args: [chainRaise.address, amount],
         });
-    const { status: approveStatus, error: approveError, write: approve }
+    const { error: approveError, write: approve }
         = useContractWrite(approveConfig);
+
     useEffect(() => {
         if (approveError) {
             setError(formatError(approveError));
-            setBusy(false);
+            dispatch(setIdle());
         }
-    }, [approveError]);
+    }, [approveError, dispatch]);
 
     /* fund */
     const { config: fundConfig }
         = usePrepareContractWrite({
-            enabled: canFund,
+            enabled: status === 'approved',
             address: chainRaise.address,
             abi: chainRaise.abi,
             functionName: 'fund',
             args: [campaign.campaignId, amount]
         });
-    const { data: fundData, status: fundStatus, error: fundError, write: fund }
+    const { data: fundData, error: fundError, write: fund }
         = useContractWrite(fundConfig);
     useEffect(() => {
         if (fundError) {
             setError(formatError(fundError));
-            setBusy(false);
+            dispatch(setIdle());
         }
-    }, [fundError]);
+    }, [fundError, dispatch]);
 
-    useWaitForTransaction({ hash: fundData?.hash });
+    const { data } = useWaitForTransaction({ hash: fundData?.hash });
     useEffect(() => {
-        if (fundData?.hash) {
+        if (data) {
             resetForm();
-            setCanFund(false);
             setAmount(defaultAmountUnits);
-            setBusy(false);
-            setDisabled(true);
+            setDisabled(false);
+            dispatch(setIdle());
         }
-    }, [fundData, resetForm, defaultAmountUnits]);
-
-    /* status */
-    const [status, setStatus] = useState('');
-    useEffect(() => setStatus(`approve: ${approveStatus}`), [approveStatus]);
-    useEffect(() => setStatus(`fund: ${fundStatus}`), [fundStatus]);
+    }, [data, resetForm, defaultAmountUnits, dispatch]);
 
     const onChange = (event: ChangeEvent<HTMLInputElement>) => {
         if (!event.target.value.length) {
@@ -124,7 +117,6 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
         }
         try {
             const parsedAmount = campaign.parseUnits(parseFloat(event.target.value));
-            setCanFund(false);
             setAmount(parsedAmount);
         } catch (error) {
             event.target.value = campaign.formatUnits(amount);
@@ -137,18 +129,37 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
 
     const onSubmit = handleSubmit((values) => {
         setError(null);
-        setBusy(true);
         setAmount(campaign.parseUnits(values.amount));
-        canFund ? fund?.() : approve?.();
+        (status === 'approved') ? fund?.() : approve?.();
+        dispatch(setBusy());
     });
+
+    const Submit = () => {
+        if (status === 'busy') {
+            return (
+                <BallTriangle
+                    height={100}
+                    width={100}
+                    radius={5}
+                    color="#485fc7"
+                    ariaLabel="ball-triangle-loading"
+                    visible={true} />
+            );
+        } else {
+            return (
+                <button disabled={disabled} className="button is-link">
+                    {(status === 'approved') && 'Fund' || 'Approve'} {campaign.formatUnits(amount)} {campaign.token.name}
+                </button>
+            );
+        }
+    };
 
     return (
         <div className="container">
             <div>Status: {status}</div>
             <div>Balance: {balance && balance.formatted} -
                 Allowance: {allowance && allowance.formatted} -
-                Amount: {campaign.formatUnits(amount)} -
-                CanFund: {canFund && 'yes' || 'no'}</div>
+                Amount: {campaign.formatUnits(amount)}</div>
             <form onSubmit={onSubmit}>
                 <div className="field">
                     <label className="label" htmlFor="amount">Amount</label>
@@ -160,9 +171,7 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
 
                 <div className="field">
                     <div className="control">
-                        <button disabled={disabled || busy} className="button is-link">
-                            {canFund && 'Fund' || 'Approve'} {campaign.formatUnits(amount)} {campaign.token.name}
-                        </button>
+                        <Submit />
                     </div>
                 </div>
             </form>

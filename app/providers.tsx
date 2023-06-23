@@ -5,7 +5,9 @@ import { mainnet, sepolia, bscTestnet } from '@wagmi/core/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
+import { Provider } from 'react-redux';
 
+import { store } from './redux/store';
 import { buildbear } from './common';
 
 const { chains, publicClient, webSocketPublicClient } = configureChains(
@@ -30,7 +32,9 @@ export default function Providers({
 
     return (
         <WagmiConfig config={config} >
-            {mounted && children}
+            <Provider store={store}>
+                {mounted && children}
+            </Provider>
         </WagmiConfig>
     );
 }
