@@ -111,6 +111,12 @@ export class Campaign {
     }
 
     toArgs(): [Address, bigint, bigint, Hex] {
+        // FIXME: handle gracefully
+        // max calldata size in block = 128k minus other arguments
+        if ((this.blob?.length ?? 0) > (131072 - 195)) {
+            throw new Error('Oversised Payload');
+        }
+
         return [
             this.token.address,
             this.goal,

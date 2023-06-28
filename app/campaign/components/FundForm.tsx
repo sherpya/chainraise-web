@@ -1,3 +1,7 @@
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+
 import * as yup from 'yup';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -10,13 +14,16 @@ import { formatError } from '@/app/common';
 import { getChainRaiseContract } from '@/app/contracts/ChainRaise';
 import { useAllowance } from '@/src/wagmi/hooks/useAllowance';
 import { Campaign } from '@/app/models/Campaign';
-import { useAppDispatch, useAppSelector } from '@/app/redux/hooks';
-import { setIdle, setBusy, setApproved } from '@/app/redux/features/fundSlice';
+
+enum FundState {
+    Idle,
+    Busy,
+    Approved
+};
 
 export default function FundForm({ campaign }: { campaign: Campaign; }) {
     const account = useAccount();
-    const status = useAppSelector((state) => state.fundSlice.status);
-    const dispatch = useAppDispatch();
+    const [status, setStatus] = useState<FundState>(FundState.Idle);
 
     const fundSchema = yup.object({
         amount: yup.number()
@@ -25,9 +32,9 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
             .positive('amount must be greater than 0')
     });
 
-    // FIXME: check deadline
     // FIXME: reject on fund changes the button to approve
 
+    const isExpired = dayjs.utc().unix() > campaign.deadline;
     const defaultAmount = 1.0;
     const defaultAmountUnits = campaign.parseUnits(defaultAmount);
 
@@ -61,9 +68,9 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
 
     useEffect(() => {
         if (allowance !== undefined) {
-            dispatch((allowance.value >= amount) ? setApproved() : setIdle());
+            setStatus((allowance.value >= amount) ? FundState.Approved : FundState.Idle);
         }
-    }, [allowance, amount, dispatch]);
+    }, [allowance, amount]);
 
     /* approve */
     const { config: approveConfig }
@@ -79,14 +86,14 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
     useEffect(() => {
         if (approveError) {
             setError(formatError(approveError));
-            dispatch(setIdle());
+            setStatus(FundState.Idle);
         }
-    }, [approveError, dispatch]);
+    }, [approveError]);
 
     /* fund */
     const { config: fundConfig }
         = usePrepareContractWrite({
-            enabled: status === 'approved',
+            enabled: status === FundState.Approved,
             address: chainRaise.address,
             abi: chainRaise.abi,
             functionName: 'fund',
@@ -97,9 +104,9 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
     useEffect(() => {
         if (fundError) {
             setError(formatError(fundError));
-            dispatch(setIdle());
+            setStatus(FundState.Idle);
         }
-    }, [fundError, dispatch]);
+    }, [fundError]);
 
     const { data } = useWaitForTransaction({ hash: fundData?.hash });
     useEffect(() => {
@@ -107,9 +114,9 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
             resetForm();
             setAmount(defaultAmountUnits);
             setDisabled(false);
-            dispatch(setIdle());
+            setStatus(FundState.Idle);
         }
-    }, [data, resetForm, defaultAmountUnits, dispatch]);
+    }, [data, resetForm, defaultAmountUnits]);
 
     const onChange = (event: ChangeEvent<HTMLInputElement>) => {
         if (!event.target.value.length) {
@@ -124,18 +131,22 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
     };
 
     useEffect(() => {
-        setDisabled(!balance || balance.value < amount);
-    }, [balance, amount]);
+        setDisabled(isExpired || !balance || balance.value < amount);
+    }, [balance, amount, isExpired]);
 
     const onSubmit = handleSubmit((values) => {
         setError(null);
         setAmount(campaign.parseUnits(values.amount));
-        (status === 'approved') ? fund?.() : approve?.();
-        dispatch(setBusy());
+        (status === FundState.Approved) ? fund?.() : approve?.();
+        setStatus(FundState.Busy);
     });
 
+    const ButtonLabel = isExpired ? 'Expired'
+        : `${(status === FundState.Approved)
+        && 'Fund' || 'Approve'} ${campaign.formatUnits(amount)} ${campaign.token.name}`;
+
     const Submit = () => {
-        if (status === 'busy') {
+        if (status === FundState.Busy) {
             return (
                 <BallTriangle
                     height={100}
@@ -148,7 +159,7 @@ export default function FundForm({ campaign }: { campaign: Campaign; }) {
         } else {
             return (
                 <button disabled={disabled} className="button is-link">
-                    {(status === 'approved') && 'Fund' || 'Approve'} {campaign.formatUnits(amount)} {campaign.token.name}
+                    {ButtonLabel}
                 </button>
             );
         }

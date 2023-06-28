@@ -1,13 +1,12 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { WagmiConfig, createConfig, configureChains } from 'wagmi';
 import { mainnet, sepolia, bscTestnet } from '@wagmi/core/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-import { Provider } from 'react-redux';
 
-import { store } from './redux/store';
 import { buildbear } from './common';
 
 const { chains, publicClient, webSocketPublicClient } = configureChains(
@@ -32,9 +31,7 @@ export default function Providers({
 
     return (
         <WagmiConfig config={config} >
-            <Provider store={store}>
-                {mounted && children}
-            </Provider>
+            {mounted && children}
         </WagmiConfig>
     );
 }
