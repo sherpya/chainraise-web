@@ -25,7 +25,7 @@ export default function CreateCampaignForm() {
 
     const router = useRouter();
     const resolver = yupResolver(campaignSchema);
-    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    const { register, control, handleSubmit, formState: { errors } } = useForm({
         resolver,
         defaultValues: {
             amount: 1,
@@ -36,6 +36,7 @@ export default function CreateCampaignForm() {
     const chainRaise = getChainRaiseContract();
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
 
     const { config } = usePrepareContractWrite({
         enabled: campaign != null,
@@ -45,7 +46,7 @@ export default function CreateCampaignForm() {
         args: campaign?.toArgs()
     });
 
-    const { data, status, isLoading, writeAsync: createCampaign, error: createCampaignError } = useContractWrite(config);
+    const { data, write: createCampaign, error: createCampaignError } = useContractWrite(config);
 
     const { data: tx } = useWaitForTransaction({
         hash: data?.hash
@@ -70,6 +71,7 @@ export default function CreateCampaignForm() {
         if (createCampaignError) {
             setError(formatError(createCampaignError));
             setCampaign(null);
+            setBusy(false);
         }
     }, [createCampaignError]);
 
@@ -77,18 +79,18 @@ export default function CreateCampaignForm() {
         const message = toMessage(values.title, values.description);
         const campaign = Campaign.fromForm(values, chain.id, message);
         setError(null);
+        setBusy(true);
         setCampaign(campaign);
     });
 
     useEffect(() => {
         if (campaign) {
-            createCampaign?.().then(console.log).catch(console.error);
+            createCampaign?.();
         }
     }, [campaign, createCampaign]);
 
     return (
         <div className="container">
-            <div>Status: {status}</div>
             <form onSubmit={onSubmit}>
                 <div className="field">
                     <label className="label" htmlFor="title">Title</label>
@@ -142,7 +144,7 @@ export default function CreateCampaignForm() {
 
                 <div className="field">
                     <div className="control">
-                        <button disabled={isSubmitting || isLoading} className="button is-link">Submit</button>
+                        <button disabled={busy} className="button is-link">Submit</button>
                     </div>
                 </div>
             </form>
