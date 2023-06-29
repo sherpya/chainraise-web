@@ -11,6 +11,7 @@ import { ErrorMessage } from '@hookform/error-message';
 import { yupResolver } from '@hookform/resolvers/yup';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import Modal from 'react-modal';
 import { decodeEventLog } from 'viem';
 import { useContractWrite, useNetwork, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
 
@@ -37,8 +38,24 @@ export default function CreateCampaignForm() {
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+
+    const customStyles = {
+        overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.6)'
+        },
+        content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)'
+        }
+    };
 
     const { config } = usePrepareContractWrite({
+        cacheTime: 0, // avoid: DOMException: The quota has been exceeded.
         enabled: campaign != null,
         address: chainRaise.address,
         abi: chainRaise.abi,
@@ -85,9 +102,22 @@ export default function CreateCampaignForm() {
 
     useEffect(() => {
         if (campaign) {
-            createCampaign?.();
+            if (campaign.isOversided()) {
+                setShowModal(true);
+            } else {
+                createCampaign?.();
+            }
         }
     }, [campaign, createCampaign]);
+
+    useEffect(() => {
+        Modal.setAppElement('body');
+    }, []);
+
+    const afterOpenModal = () => {
+        setCampaign(null);
+        setBusy(false);
+    };
 
     return (
         <div className="container">
@@ -148,6 +178,13 @@ export default function CreateCampaignForm() {
                     </div>
                 </div>
             </form>
+
+            <Modal isOpen={showModal} onAfterOpen={afterOpenModal} onRequestClose={() => setShowModal(false)} style={customStyles}>
+                <h1 className="pb-3">The description is oversized, try to use smaller images.</h1>
+                <div className="buttons is-right">
+                    <button className="button is-link is-right is-danger" onClick={() => setShowModal(false)}>OK</button>
+                </div>
+            </Modal>
 
             {error && <pre>{error}</pre>}
         </div>
